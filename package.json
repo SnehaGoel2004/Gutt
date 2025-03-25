@@ -1,0 +1,17 @@
+{
+  "name": "gutt",
+  "version": "1.0.0",
+  "main": "Gutt.js",
+  "scripts": {
+    "init": "node Gutt.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "diff": "^7.0.0"
+  }
+}
