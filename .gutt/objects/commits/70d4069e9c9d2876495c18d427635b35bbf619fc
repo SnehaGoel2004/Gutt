@@ -1,0 +1,28 @@
+{
+  "message": "clean unicode fix",
+  "timeStamp": "2026-05-24T14:34:48.986Z",
+  "files": [
+    {
+      "path": ".guttignore",
+      "hash": "5a5745f16a01afad357b0b4beb807f1314974554"
+    },
+    {
+      "path": "a.txt",
+      "hash": "ece8247afb84ef239ee89d99698614b05c7f95ce"
+    },
+    {
+      "path": "app.js",
+      "hash": "1f7e449c3ae844dcd471363e478cec41ac470977"
+    },
+    {
+      "path": "b.txt",
+      "hash": "ece8247afb84ef239ee89d99698614b05c7f95ce"
+    },
+    {
+      "path": "unicode.txt",
+      "hash": "667ef60ff3c429b886324518b0233e6054d85601"
+    }
+  ],
+  "parent": "b1a18c16ef2d07292f1075f270610493d2bcc239",
+  "branch": "main"
+}

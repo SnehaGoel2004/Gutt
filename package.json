@@ -1,0 +1,25 @@
+{
+  "name": "gutt",
+  "version": "2.0.0",
+  "description": "Developer-friendly Git-inspired VCS with intelligent version tracking",
+  "main": "src/index.js",
+  "bin": {
+    "gutt": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "lint": "eslint src/"
+  },
+  "keywords": [
+    "vcs",
+    "git",
+    "version-control",
+    "cli"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.0.0",
+    "diff": "^5.1.0"
+  }
+}

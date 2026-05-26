@@ -1,0 +1,20 @@
+{
+  "message": "unicode test",
+  "timeStamp": "2026-05-24T11:49:40.960Z",
+  "files": [
+    {
+      "path": "a.txt",
+      "hash": "f48da3816facf83c5fce480d4d5eaf55ab2f2e50"
+    },
+    {
+      "path": "b.txt",
+      "hash": "f48da3816facf83c5fce480d4d5eaf55ab2f2e50"
+    },
+    {
+      "path": "unicode.txt",
+      "hash": "1288aa8cc0607d7fce239ff5db295f9ec8c5a2b6"
+    }
+  ],
+  "parent": "13a3f34fdfaba1d2199998a9d1d1ed6d49c9ac9d",
+  "branch": "main"
+}

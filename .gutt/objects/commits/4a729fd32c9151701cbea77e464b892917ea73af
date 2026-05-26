@@ -1,0 +1,25 @@
+{
+  "message": "feature-update",
+  "timeStamp": "2026-05-25T04:53:09.627Z",
+  "files": [
+    {
+      "path": "a.txt",
+      "hash": "ece8247afb84ef239ee89d99698614b05c7f95ce"
+    },
+    {
+      "path": "app.js",
+      "hash": "084d9cb4888974d7384e5e6e2a8cbfd4f7bc3c90"
+    },
+    {
+      "path": "b.txt",
+      "hash": "ece8247afb84ef239ee89d99698614b05c7f95ce"
+    },
+    {
+      "path": "unicode.txt",
+      "hash": "667ef60ff3c429b886324518b0233e6054d85601"
+    }
+  ],
+  "parent": "70d4069e9c9d2876495c18d427635b35bbf619fc",
+  "mergeParent": null,
+  "branch": "main"
+}

@@ -1,0 +1,37 @@
+# .guttignore — Gutt ignore rules
+# Lines starting with # are comments.
+# Syntax: exact filenames, directory names, or *.extension wildcards.
+
+# Dependencies
+node_modules
+
+# Environment & secrets
+.env
+.env.local
+.env.production
+*.pem
+*.key
+id_rsa
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build output
+dist/
+build/
+out/
+
+# Gutt internals
+.gutt/
+
+# Ignore Gutt source when testing inside project repo
+src/
+tests/
+docs/
+README.md
+package.json
