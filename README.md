@@ -45,7 +45,7 @@ while still maintaining low-level Git-inspired internals like:
 # 🎬 Demo
 
 <p align="center">
-  <img src="assets/demo.mp4" width="90%" />
+  <video src="assets/demo.mp4" controls width="90%"></video>
 </p>
 
 > Demonstrating repository initialization, staging, commits, analytics, visualization, and integrity verification.
