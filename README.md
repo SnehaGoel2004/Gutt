@@ -145,9 +145,7 @@ while still maintaining low-level Git-inspired internals like:
 
 # 🏗 Architecture
 
-<p align="center">
-  <img src="assets/architecture.png" width="90%" />
-</p>
+👉 docs/Architecture.md
 
 ## Architecture Overview
 
