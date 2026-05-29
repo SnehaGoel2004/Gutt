@@ -44,11 +44,11 @@ while still maintaining low-level Git-inspired internals like:
 
 # 🎬 Demo
 
-<p align="center">
-  <video src="assets/demo.mp4" controls width="90%"></video>
-</p>
-
 > Demonstrating repository initialization, staging, commits, analytics, visualization, and integrity verification.
+
+> https://github.com/user-attachments/assets/27dd9e2d-4cd1-4701-91d9-73e94fb4f346
+
+
 
 ---
 
