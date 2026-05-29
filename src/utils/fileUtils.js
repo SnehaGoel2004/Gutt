@@ -141,6 +141,28 @@ async function exists(targetPath) {
 /**
  * Recursively lists files.
  */
+// async function listAllFiles(dir, root = dir) {
+//   const entries = await fs.readdir(dir, {
+//     withFileTypes: true
+//   });
+
+//   const files = [];
+
+//   for (const entry of entries) {
+//     const fullPath = path.join(dir, entry.name);
+
+//     if (entry.isDirectory()) {
+//       const nested = await listAllFiles(fullPath, root);
+//       files.push(...nested);
+//     } else {
+//       files.push(path.relative(root, fullPath));
+//     }
+//   }
+
+//   return files;
+// }
+
+
 async function listAllFiles(dir, root = dir) {
   const entries = await fs.readdir(dir, {
     withFileTypes: true
@@ -150,12 +172,23 @@ async function listAllFiles(dir, root = dir) {
 
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
+    const relativePath = path.relative(root, fullPath);
+
+    // 🚫 CRITICAL FIX: ignore VCS folders
+    if (
+      relativePath.startsWith('.git') ||
+      relativePath.startsWith('.git' + path.sep) ||
+      relativePath.startsWith('.gutt') ||
+      relativePath.startsWith('.gutt' + path.sep)
+    ) {
+      continue;
+    }
 
     if (entry.isDirectory()) {
       const nested = await listAllFiles(fullPath, root);
       files.push(...nested);
     } else {
-      files.push(path.relative(root, fullPath));
+      files.push(relativePath);
     }
   }
 

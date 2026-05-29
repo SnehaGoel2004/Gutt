@@ -1,7 +1,7 @@
 'use strict';
 
-const path  = require('path');
-const fs    = require('fs').promises;
+const path = require('path');
+const fs = require('fs').promises;
 const chalk = require('chalk');
 
 const IndexManager = require('../core/IndexManager');
@@ -23,83 +23,46 @@ const {
   listAllFiles
 } = require('../utils/fileUtils');
 
+const WorkflowMetrics = require('../utils/workflowMetrics');
+
 /**
  * gutt status
- *
- * FIXED FOR FULL-SNAPSHOT ARCHITECTURE
- *
- * Previous bug:
- * Status walked commit history assuming commits were deltas.
- *
- * Current Gutt architecture:
- * Every commit already contains the COMPLETE repository snapshot.
- *
- * Therefore:
- * - no history traversal is needed
- * - HEAD commit alone is authoritative
- * - deleted ghost files disappear correctly after clone/checkout
  */
-
 async function statusCommand(repo) {
 
-  const index =
-    new IndexManager(repo.indexPath);
+  // Read-only metrics — DO NOT track anything here
+  const workflow = new WorkflowMetrics(repo.rootPath || repo.workingDir);
 
-  const staged =
-    await index.read();
+  const index = new IndexManager(repo.indexPath);
+  const staged = await index.read();
 
-  const headHash =
-    await repo.refs.resolveHead();
+  const headHash = await repo.refs.resolveHead();
+  const userPatterns = await loadIgnorePatterns(repo.workingDir);
+  const head = await repo.refs.readHead() || {};
 
-  const userPatterns =
-    await loadIgnorePatterns(repo.workingDir);
-
-  const head =
-    await repo.refs.readHead();
-
-  // FULL SNAPSHOT — read ONLY HEAD commit
-  const committedFiles =
-    await buildFullCommittedTree(
-      headHash,
-      repo
-    );
+  const committedFiles = await buildFullCommittedTree(headHash, repo);
 
   // ------------------------------------------------
-  // Header
+  // HEADER
   // ------------------------------------------------
 
   const branchLabel =
     head.type === 'branch'
-      ? chalk.bold.cyan(
-          `On branch: ${head.name}`
-        )
-      : chalk.yellow(
-          `HEAD detached at ${shortHash(head.hash)}`
-        );
+      ? chalk.bold.cyan(`On branch: ${head.name}`)
+      : chalk.yellow(`HEAD detached at ${shortHash(head.hash || '')}`);
 
   console.log(`\n${branchLabel}`);
 
   if (headHash) {
-
-    const headCommit =
-      await repo.commits.retrieve(headHash);
-
+    const headCommit = await repo.commits.retrieve(headHash);
     console.log(
-      chalk.gray(
-        `Last commit: ${shortHash(headHash)}  "${headCommit?.message}"`
-      )
+      chalk.gray(`Last commit: ${shortHash(headHash)}  "${headCommit?.message}"`)
     );
-
   } else {
-
-    console.log(
-      chalk.gray('No commits yet.')
-    );
+    console.log(chalk.gray('No commits yet.'));
   }
 
-  console.log(
-    chalk.gray('─'.repeat(50))
-  );
+  console.log(chalk.gray('─'.repeat(50)));
 
   // ------------------------------------------------
   // 1. STAGED FILES
@@ -107,163 +70,77 @@ async function statusCommand(repo) {
 
   if (staged.length > 0) {
 
-    console.log(
-      chalk.bold.green(
-        '\n  Changes staged for commit:'
-      )
-    );
-
-    console.log(
-      chalk.gray(
-        '  (use "gutt unstage <file>" to unstage)\n'
-      )
-    );
+    console.log(chalk.bold.green('\n  Changes staged for commit:'));
+    console.log(chalk.gray('  (use "gutt unstage <file>" to unstage)\n'));
 
     for (const entry of staged) {
 
-      const committed =
-        committedFiles.get(entry.path);
-
-      // New file
+      const committed = committedFiles.get(entry.path);
 
       if (!committed) {
-
-        const content =
-          await repo.blobs.retrieve(entry.hash);
-
-        const lines =
-          content
-            ? content.split('\n').length
-            : 0;
+        const content = await repo.blobs.retrieve(entry.hash);
+        const lines = content ? content.split('\n').length : 0;
 
         console.log(
           chalk.green(`    A  ${entry.path}`) +
           chalk.gray(`  (new file, ${lines} lines)`)
         );
-
         continue;
       }
 
-      // Modified file
-
       if (committed.hash !== entry.hash) {
-
-        const prevContent =
-          await repo.blobs.retrieve(committed.hash);
-
-        const currContent =
-          await repo.blobs.retrieve(entry.hash);
-
-        const {
-          added,
-          removed
-        } = diffSummary(
-          prevContent || '',
-          currContent || ''
-        );
+        const prevContent = await repo.blobs.retrieve(committed.hash);
+        const currContent = await repo.blobs.retrieve(entry.hash);
+        const { added, removed } = diffSummary(prevContent || '', currContent || '');
 
         console.log(
           chalk.green(`    M  ${entry.path}`) +
           chalk.gray(`  (+${added} -${removed})`)
         );
-
         continue;
       }
 
-      // Identical
-
-      console.log(
-        chalk.gray(`    =  ${entry.path}`) +
-        chalk.gray('  (no changes)')
-      );
+      continue;
     }
   }
 
   // ------------------------------------------------
-  // 2. MODIFIED / DELETED FILES
+  // 2. MODIFIED / DELETED (UNSTAGED)
   // ------------------------------------------------
 
   const modifiedUnstaged = [];
-  const deletedUnstaged  = [];
+  const deletedUnstaged = [];
 
   for (const [filePath, committed] of committedFiles) {
 
-    // Skip staged files
-    if (
-      staged.some(s => s.path === filePath)
-    ) {
-      continue;
-    }
+    if (staged.some(s => s.path === filePath)) continue;
 
-    const absPath =
-      path.join(
-        repo.workingDir,
-        filePath
-      );
+    const absPath = path.join(repo.workingDir, filePath);
 
     try {
-
-      const currentContent =
-        await fs.readFile(absPath, {
-          encoding: 'utf8'
-        });
-
-      const currentBuffer =
-        await fs.readFile(absPath);
-
-      const currentHash =
-        hashBuffer(currentBuffer);
+      const currentContent = await fs.readFile(absPath, 'utf8');
+      const currentBuffer = await fs.readFile(absPath);
+      const currentHash = hashBuffer(currentBuffer);
 
       if (currentHash !== committed.hash) {
-
-        const prevContent =
-          await repo.blobs.retrieve(
-            committed.hash
-          );
-
-        const {
-          added,
-          removed
-        } = diffSummary(
-          prevContent || '',
-          currentContent
-        );
-
-        modifiedUnstaged.push({
-          path: filePath,
-          added,
-          removed
-        });
+        const prevContent = await repo.blobs.retrieve(committed.hash);
+        const { added, removed } = diffSummary(prevContent || '', currentContent);
+        modifiedUnstaged.push({ path: filePath, added, removed });
       }
 
     } catch (err) {
-
       if (err.code === 'ENOENT') {
         deletedUnstaged.push(filePath);
       }
     }
   }
 
-  // ------------------------------------------------
-  // Modified files
-  // ------------------------------------------------
-
   if (modifiedUnstaged.length > 0) {
 
-    console.log(
-      chalk.bold.yellow(
-        '\n  Changes not staged for commit:'
-      )
-    );
-
-    console.log(
-      chalk.gray(
-        '  (use "gutt add <file>" to stage)\n'
-      )
-    );
+    console.log(chalk.bold.yellow('\n  Changes not staged for commit:'));
+    console.log(chalk.gray('  (use "gutt add <file>" to stage)\n'));
 
     for (const f of modifiedUnstaged) {
-
       console.log(
         chalk.yellow(`    M  ${f.path}`) +
         chalk.gray(`  (+${f.added} -${f.removed})`)
@@ -271,29 +148,13 @@ async function statusCommand(repo) {
     }
   }
 
-  // ------------------------------------------------
-  // Deleted files
-  // ------------------------------------------------
-
   if (deletedUnstaged.length > 0) {
 
-    console.log(
-      chalk.bold.red(
-        '\n  Deleted tracked files:'
-      )
-    );
-
-    console.log(
-      chalk.gray(
-        '  (use "gutt remove <file>" to stage deletion)\n'
-      )
-    );
+    console.log(chalk.bold.red('\n  Deleted tracked files:'));
+    console.log(chalk.gray('  (use "gutt remove <file>" to stage deletion)\n'));
 
     for (const f of deletedUnstaged) {
-
-      console.log(
-        chalk.red(`    D  ${f}`)
-      );
+      console.log(chalk.red(`    D  ${f}`));
     }
   }
 
@@ -304,164 +165,94 @@ async function statusCommand(repo) {
   let allWorkingFiles = [];
 
   try {
-
-    allWorkingFiles =
-      await listAllFiles(repo.workingDir);
-
+    allWorkingFiles = await listAllFiles(repo.workingDir);
   } catch {}
 
-  const trackedPaths =
-    new Set([
-      ...staged.map(e => e.path),
-      ...committedFiles.keys(),
-    ]);
+  const trackedPaths = new Set([
+    ...staged.map(e => e.path),
+    ...committedFiles.keys(),
+  ]);
 
-  const untracked =
-    allWorkingFiles.filter(f => {
-
-      if (isIgnored(f, userPatterns)) {
-        return false;
-      }
-
-      if (trackedPaths.has(f)) {
-        return false;
-      }
-
-      return true;
-    });
+  const untracked = allWorkingFiles.filter(f => {
+    if (isIgnored(f, userPatterns)) return false;
+    if (trackedPaths.has(f)) return false;
+    return true;
+  });
 
   if (untracked.length > 0) {
 
-    const {
-      collapsed,
-      individuals
-    } = collapseUntrackedDirs(
-      untracked,
-      trackedPaths
-    );
+    const { collapsed, individuals } = collapseUntrackedDirs(untracked);
 
     if (collapsed.length > 0) {
-
-      console.log(
-        chalk.bold(
-          '\n  Untracked directories:'
-        )
-      );
-
-      console.log(
-        chalk.gray(
-          '  (use "gutt add <path>" to track files inside)\n'
-        )
-      );
+      console.log(chalk.bold('\n  Untracked directories:'));
+      console.log(chalk.gray('  (use "gutt add <path>" to track files inside)\n'));
 
       for (const dir of collapsed) {
-
-        console.log(
-          chalk.gray(`    ?  ${dir}`)
-        );
+        console.log(chalk.gray(`    ?  ${dir}`));
       }
     }
 
     if (individuals.length > 0) {
-
-      console.log(
-        chalk.bold(
-          '\n  Untracked files:'
-        )
-      );
-
-      console.log(
-        chalk.gray(
-          '  (use "gutt add <file>" to track)\n'
-        )
-      );
+      console.log(chalk.bold('\n  Untracked files:'));
+      console.log(chalk.gray('  (use "gutt add <file>" to track)\n'));
 
       for (const f of individuals) {
-
-        console.log(
-          chalk.gray(`    ?  ${f}`)
-        );
-      }
-    }
-
-    const suggestions =
-      suggestIgnoreEntries(untracked);
-
-    if (suggestions.length > 0) {
-
-      console.log(
-        chalk.gray(
-          '\n  Tip: add these to .guttignore to clean up status output:'
-        )
-      );
-
-      for (const s of suggestions) {
-
-        console.log(
-          chalk.gray(`    ${s}`)
-        );
+        console.log(chalk.gray(`    ?  ${f}`));
       }
     }
   }
 
   // ------------------------------------------------
-  // CLEAN STATE
+  // CLEAN STATE MESSAGE
   // ------------------------------------------------
 
   const hasAnything =
-    staged.length ||
-    modifiedUnstaged.length ||
-    deletedUnstaged.length ||
-    untracked.length;
+    staged.length > 0 ||
+    modifiedUnstaged.length > 0 ||
+    deletedUnstaged.length > 0 ||
+    untracked.length > 0;
 
   if (!hasAnything) {
-
-    console.log(
-      chalk.green(
-        '\n  ✔  Working tree clean. Nothing to commit.\n'
-      )
-    );
-
-  } else {
-
-    console.log();
+    console.log(chalk.green('\n  ✔  Working tree clean. Nothing to commit.\n'));
   }
+
+  // ------------------------------------------------
+  // METRICS DISPLAY — read-only, never modified here
+  // ------------------------------------------------
+
+  const report = workflow.report();
+
+  console.log(chalk.blue('  📊 Workflow Efficiency Report'));
+  console.log(chalk.gray(`  Efficiency: ${report.efficiency}%`));
+  console.log(chalk.gray(`  Total Events: ${report.totalEvents}`));
+  console.log(chalk.gray(`  Useful: ${report.useful}`));
+  console.log(chalk.gray(`  Redundant: ${report.redundant}`));
+  console.log(chalk.gray(`  Insight: ${report.improvementClaim}`));
+  console.log();
+
+  console.log(chalk.blue('  📦 Storage Optimization Report'));
+  console.log(chalk.gray(`  Storage Efficiency: ${report.storageEfficiency}%`));
+  console.log(chalk.gray(`  New Blobs: ${report.blobNew}`));
+  console.log(chalk.gray(`  Deduplicated Blobs: ${report.blobDedup}`));
+  console.log(chalk.gray(`  Insight: ${report.storageOptimization}`));
+  console.log();
 }
 
 /**
  * FULL SNAPSHOT LOADER
- *
- * Current Gutt commits already contain the entire file tree.
- * Therefore we read ONLY the HEAD commit.
  */
+async function buildFullCommittedTree(startHash, repo) {
 
-async function buildFullCommittedTree(
-  startHash,
-  repo
-) {
+  const fileMap = new Map();
 
-  const fileMap =
-    new Map();
+  if (!startHash) return fileMap;
 
-  if (!startHash) {
-    return fileMap;
-  }
+  const commit = await repo.commits.retrieve(startHash);
 
-  const commit =
-    await repo.commits.retrieve(startHash);
-
-  if (!commit) {
-    return fileMap;
-  }
+  if (!commit) return fileMap;
 
   for (const entry of (commit.files || [])) {
-
-    fileMap.set(
-      entry.path,
-      {
-        hash: entry.hash
-      }
-    );
+    fileMap.set(entry.path, { hash: entry.hash });
   }
 
   return fileMap;
@@ -470,131 +261,37 @@ async function buildFullCommittedTree(
 /**
  * Collapse noisy untracked dirs
  */
+function collapseUntrackedDirs(untracked) {
 
-function collapseUntrackedDirs(
-  untracked,
-  tracked
-) {
-
-  const dirCounts =
-    new Map();
+  const dirCounts = new Map();
 
   for (const f of untracked) {
-
-    const parts =
-      f.split('/');
-
+    const parts = f.split('/');
     if (parts.length > 1) {
-
-      const topDir =
-        parts[0] + '/';
-
-      dirCounts.set(
-        topDir,
-        (dirCounts.get(topDir) || 0) + 1
-      );
+      const topDir = parts[0] + '/';
+      dirCounts.set(topDir, (dirCounts.get(topDir) || 0) + 1);
     }
   }
 
-  const collapsedDirs =
-    new Set();
-
-  const collapsed   = [];
+  const collapsed = [];
   const individuals = [];
+  const seen = new Set();
 
   for (const f of untracked) {
+    const parts = f.split('/');
+    const topDir = parts.length > 1 ? parts[0] + '/' : null;
 
-    const parts =
-      f.split('/');
-
-    const topDir =
-      parts.length > 1
-        ? parts[0] + '/'
-        : null;
-
-    if (
-      topDir &&
-      dirCounts.get(topDir) > 1
-    ) {
-
-      if (!collapsedDirs.has(topDir)) {
-
-        collapsedDirs.add(topDir);
+    if (topDir && dirCounts.get(topDir) > 1) {
+      if (!seen.has(topDir)) {
+        seen.add(topDir);
         collapsed.push(topDir);
       }
-
     } else {
-
       individuals.push(f);
     }
   }
 
-  return {
-    collapsed,
-    individuals
-  };
-}
-
-/**
- * Ignore suggestions
- */
-
-function suggestIgnoreEntries(
-  untrackedFiles
-) {
-
-  const suggestions =
-    new Set();
-
-  for (const f of untrackedFiles) {
-
-    const base =
-      path.basename(f);
-
-    const ext =
-      path.extname(f).toLowerCase();
-
-    if (
-      base === '.env' ||
-      base.startsWith('.env.')
-    ) {
-      suggestions.add('.env');
-    }
-
-    if (ext === '.log') {
-      suggestions.add('*.log');
-    }
-
-    if (f.startsWith('node_modules/')) {
-      suggestions.add('node_modules');
-    }
-
-    if (
-      f.startsWith('dist/') ||
-      f.startsWith('build/')
-    ) {
-      suggestions.add(
-        f.split('/')[0] + '/'
-      );
-    }
-
-    if (base === '.DS_Store') {
-      suggestions.add('.DS_Store');
-    }
-
-    if (ext === '.map') {
-      suggestions.add('*.map');
-    }
-
-    if (
-      base === 'package-lock.json' ||
-      base === 'yarn.lock'
-    ) {
-      suggestions.add(base);
-    }
-  }
-
-  return [...suggestions];
+  return { collapsed, individuals };
 }
 
 module.exports = statusCommand;

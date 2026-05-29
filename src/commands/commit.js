@@ -4,6 +4,7 @@ const chalk                 = require('chalk');
 const CommitManager         = require('../core/CommitManager');
 const IndexManager          = require('../core/IndexManager');
 const CommitSuggestionEngine = require('../analytics/CommitSuggestionEngine');
+const WorkflowMetrics       = require('../utils/workflowMetrics');
 const { diffSummary }       = require('../utils/diffUtils');
 const { shortHash }         = require('../utils/hashUtils');
 
@@ -74,7 +75,11 @@ async function commitCommand(message, { suggest = false } = {}, repo) {
     return;
   }
 
-  // ── Success output (standardized — always shows all fields) ────────────
+  // Track successful commit
+  const workflow = new WorkflowMetrics(repo.rootPath || repo.workingDir);
+  workflow.track('commit');
+
+  // ── Success output ────────────────────────────────────────────────────
   const dedup = result.stats.deduplicatedBlobs;
   const snap  = result.stats.newBlobs;
 
