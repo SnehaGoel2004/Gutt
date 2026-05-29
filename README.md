@@ -1,15 +1,3 @@
-
-
-https://github.com/user-attachments/assets/260b443c-d32b-447d-962a-92916f3052d6
-
-
-
-https://github.com/user-attachments/assets/78ef8104-4e28-4f25-9878-ccc4db5fe2df
-
-
-
-
-
 # <p align="center">Gutt — Developer-Friendly Version Control System</p>
 
 <p align="center">
